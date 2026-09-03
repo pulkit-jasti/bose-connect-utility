@@ -9,7 +9,10 @@ class BoseController: NSObject, ObservableObject, IOBluetoothRFCOMMChannelDelega
 
     var menuBarLabel: String {
         guard isConnected else { return "--" }
-        return battery.map { "\($0)%" } ?? "..."
+        let batt = battery.map { "\($0)%" } ?? "..."
+        guard let anc = lastANC else { return batt }
+        let names = ["high": "High", "low": "Low", "off": "Off"]
+        return "\(batt) · \(names[anc] ?? anc)"
     }
 
     private let CHANNEL: BluetoothRFCOMMChannelID = 9

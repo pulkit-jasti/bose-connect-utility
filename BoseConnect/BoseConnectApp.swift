@@ -9,8 +9,12 @@ struct BoseConnectApp: App {
             ContentView()
                 .environmentObject(controller)
         } label: {
-            Label(controller.menuBarLabel, systemImage: "headphones")
+            HStack(spacing: 4) {
+                Image(systemName: "waveform")
+                Text(controller.menuBarLabel)
+                    .font(.system(size: 12))
+            }
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
     }
 }

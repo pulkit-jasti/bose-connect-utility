@@ -4,29 +4,54 @@ struct ContentView: View {
     @EnvironmentObject var controller: BoseController
 
     var body: some View {
-        Text(controller.isConnected
-             ? "\(controller.deviceName)  ·  \(controller.battery.map { "\($0)%" } ?? "...")"
-             : "Not connected")
-            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(controller.isConnected ? controller.deviceName : "Not connected")
+                        .font(.headline)
+                    if controller.isConnected {
+                        Text(controller.battery.map { "Battery: \($0)%" } ?? "Fetching battery...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+            }
 
-        Divider()
+            if controller.isConnected {
+                Divider()
 
-        Button(ancLabel("high")) { controller.setANC("high") }
-        Button(ancLabel("low"))  { controller.setANC("low") }
-        Button(ancLabel("off"))  { controller.setANC("off") }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Noise Cancellation")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-        Divider()
+                    Picker("ANC", selection: Binding(
+                        get: { controller.lastANC ?? "high" },
+                        set: { controller.setANC($0) }
+                    )) {
+                        Text("High").tag("high")
+                        Text("Low").tag("low")
+                        Text("Off").tag("off")
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
 
-        Button("Refresh") { controller.refresh() }
+            Divider()
 
-        Divider()
-
-        Button("Quit") { NSApplication.shared.terminate(nil) }
-    }
-
-    private func ancLabel(_ level: String) -> String {
-        let names = ["high": "High", "low": "Low", "off": "Off"]
-        let mark  = controller.lastANC == level ? "✓ " : "   "
-        return "\(mark)ANC: \(names[level] ?? level)"
+            HStack {
+                Button("Refresh") { controller.refresh() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.subheadline)
+        }
+        .padding(16)
+        .frame(width: 260)
     }
 }
