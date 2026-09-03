@@ -7,17 +7,12 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(controller.isConnected ? controller.deviceName : "Not connected")
-                        .font(.headline)
-                    if controller.isConnected {
-                        Text(controller.battery.map { "Battery: \($0)%" } ?? "Fetching battery...")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
+            Text(controller.isConnected ? controller.deviceName : "Not connected")
+                .font(.headline)
+            if controller.isConnected {
+                Text(controller.battery.map { "Battery: \($0)%" } ?? "Fetching battery...")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
 
             if controller.isConnected {

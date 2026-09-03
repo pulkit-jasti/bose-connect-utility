@@ -102,7 +102,7 @@ class BoseController: NSObject, ObservableObject, IOBluetoothRFCOMMChannelDelega
     private func findDevice() {
         let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []
         device = paired.first { isBoseDevice($0) }
-        if let d = device, d.isConnected() == true, disconnectNotification == nil {
+        if let d = device, d.isConnected(), disconnectNotification == nil {
             disconnectNotification = d.register(
                 forDisconnectNotification: self,
                 selector: #selector(deviceDisconnected(_:device:))

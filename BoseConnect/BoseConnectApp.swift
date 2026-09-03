@@ -6,7 +6,7 @@ import ServiceManagement
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
-    let controller = BoseController()
+    private let controller = BoseController()
     private var cancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
