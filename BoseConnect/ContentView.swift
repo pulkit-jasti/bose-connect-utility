@@ -1,7 +1,9 @@
 import SwiftUI
+import ServiceManagement
 
 struct ContentView: View {
     @EnvironmentObject var controller: BoseController
+    @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -37,6 +39,22 @@ struct ContentView: View {
                     .pickerStyle(.segmented)
                 }
             }
+
+            Divider()
+
+            Toggle("Launch at Login", isOn: $launchAtLogin)
+                .font(.subheadline)
+                .onChange(of: launchAtLogin) { enabled in
+                    do {
+                        if enabled {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                    } catch {
+                        launchAtLogin = !enabled
+                    }
+                }
 
             Divider()
 
