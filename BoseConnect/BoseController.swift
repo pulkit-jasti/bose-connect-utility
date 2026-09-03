@@ -30,16 +30,22 @@ class BoseController: NSObject, ObservableObject, IOBluetoothRFCOMMChannelDelega
     override init() {
         super.init()
         refresh()
-        Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.refresh() }
+        Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.refresh() }
     }
 
     func refresh() {
+        let wasConnected = isConnected
         findDevice()
         guard device?.isConnected() == true else {
             DispatchQueue.main.async { self.battery = nil }
             return
         }
-        openChannel(anc: nil)
+        if !wasConnected {
+            DispatchQueue.main.async { self.lastANC = "off" }
+            openChannel(anc: ANC_CMDS["off"])
+        } else {
+            openChannel(anc: nil)
+        }
     }
 
     func setANC(_ level: String) {

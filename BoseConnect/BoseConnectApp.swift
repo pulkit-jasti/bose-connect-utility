@@ -1,20 +1,59 @@
+import AppKit
 import SwiftUI
+import Combine
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    private var statusItem: NSStatusItem!
+    private var popover: NSPopover!
+    let controller = BoseController()
+    private var cancellable: AnyCancellable?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.isVisible = false
+
+        if let button = statusItem.button {
+            button.action = #selector(togglePopover)
+            button.target = self
+        }
+
+        let hc = NSHostingController(rootView: ContentView().environmentObject(controller))
+        hc.sizingOptions = .preferredContentSize
+        popover = NSPopover()
+        popover.contentViewController = hc
+        popover.behavior = .transient
+
+        cancellable = controller.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                DispatchQueue.main.async { self?.syncStatusItem() }
+            }
+    }
+
+    private func syncStatusItem() {
+        statusItem.isVisible = controller.isConnected
+        guard let button = statusItem.button, controller.isConnected else { return }
+        let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+        button.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: nil)?
+            .withSymbolConfiguration(cfg)
+        button.imagePosition = .imageLeft
+        button.title = " \(controller.menuBarLabel)"
+    }
+
+    @objc private func togglePopover() {
+        if popover.isShown {
+            popover.performClose(nil)
+        } else if let button = statusItem.button {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
+    }
+}
 
 @main
 struct BoseConnectApp: App {
-    @StateObject private var controller = BoseController()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            ContentView()
-                .environmentObject(controller)
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "waveform")
-                Text(controller.menuBarLabel)
-                    .font(.system(size: 12))
-            }
-        }
-        .menuBarExtraStyle(.window)
+        Settings { EmptyView() }
     }
 }
