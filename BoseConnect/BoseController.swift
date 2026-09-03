@@ -26,12 +26,49 @@ class BoseController: NSObject, ObservableObject, IOBluetoothRFCOMMChannelDelega
 
     private var device: IOBluetoothDevice?
     private var pendingANC: [UInt8]?
+    private var connectNotification: IOBluetoothUserNotification?
+    private var disconnectNotification: IOBluetoothUserNotification?
 
     override init() {
         super.init()
+        connectNotification = IOBluetoothDevice.register(
+            forConnectNotifications: self,
+            selector: #selector(deviceConnected(_:device:))
+        )
         refresh()
-        Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.refresh() }
+        // Fallback timer in case a notification is missed
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.refresh() }
     }
+
+    // MARK: - Bluetooth Notifications
+
+    @objc func deviceConnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
+        guard isBoseDevice(device) else { return }
+        self.device = device
+        if disconnectNotification == nil {
+            disconnectNotification = device.register(
+                forDisconnectNotification: self,
+                selector: #selector(deviceDisconnected(_:device:))
+            )
+        }
+        DispatchQueue.main.async {
+            self.isConnected = true
+            self.deviceName = device.name ?? "Bose Headphones"
+            self.lastANC = "off"
+        }
+        openChannel(anc: ANC_CMDS["off"])
+    }
+
+    @objc func deviceDisconnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
+        disconnectNotification = nil
+        DispatchQueue.main.async {
+            self.isConnected = false
+            self.battery = nil
+            self.lastANC = nil
+        }
+    }
+
+    // MARK: - Public
 
     func refresh() {
         let wasConnected = isConnected
@@ -56,16 +93,24 @@ class BoseController: NSObject, ObservableObject, IOBluetoothRFCOMMChannelDelega
 
     // MARK: - Private
 
+    private func isBoseDevice(_ d: IOBluetoothDevice) -> Bool {
+        let n = d.name?.lowercased() ?? ""
+        return n.contains("bose") || n.contains("qc") || n.contains("quietcomfort") ||
+               n.contains("soundsport") || n.contains("soundlink")
+    }
+
     private func findDevice() {
         let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []
-        device = paired.first {
-            let n = $0.name?.lowercased() ?? ""
-            return n.contains("bose") || n.contains("qc") || n.contains("quietcomfort") ||
-                   n.contains("soundsport") || n.contains("soundlink")
+        device = paired.first { isBoseDevice($0) }
+        if let d = device, d.isConnected() == true, disconnectNotification == nil {
+            disconnectNotification = d.register(
+                forDisconnectNotification: self,
+                selector: #selector(deviceDisconnected(_:device:))
+            )
         }
         DispatchQueue.main.async {
-            self.isConnected  = self.device?.isConnected() == true
-            self.deviceName   = self.device?.name ?? "No Bose device"
+            self.isConnected = self.device?.isConnected() == true
+            self.deviceName = self.device?.name ?? "No Bose device"
         }
     }
 
