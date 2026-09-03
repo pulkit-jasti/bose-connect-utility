@@ -7,7 +7,6 @@ import IOBluetooth
 let CHANNEL:   BluetoothRFCOMMChannelID = 9
 let HANDSHAKE: [UInt8] = [0x00, 0x01, 0x01, 0x00]
 let BATT_GET:  [UInt8] = [0x02, 0x02, 0x01, 0x00]
-let ANC_GET:   [UInt8] = [0x01, 0x06, 0x01, 0x03]
 let ANC_SET:   [String: (bytes: [UInt8], level: UInt8)] = [
     "high": (bytes: [0x01, 0x06, 0x02, 0x01, 0x01], level: 0x01),
     "low":  (bytes: [0x01, 0x06, 0x02, 0x01, 0x03], level: 0x03),
@@ -20,7 +19,7 @@ let ANC_NAMES: [UInt8: String] = [0x00: "Off", 0x01: "High", 0x03: "Low"]
 func isBose(_ d: IOBluetoothDevice) -> Bool {
     let n = d.name?.lowercased() ?? ""
     return n.contains("bose") || n.contains("qc") || n.contains("quietcomfort") ||
-           n.contains("soundsport") || n.contains("soundlink") || n.contains("sport")
+           n.contains("soundsport") || n.contains("soundlink")
 }
 
 guard let device = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice])?.first(where: isBose) else {
@@ -71,20 +70,18 @@ class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
 
         switch command {
         case .ancSet(let setBytes, _, _):
-            // GadgetBridge bundles handshake + ANC SET + battery in one write
+            // Bundled in one write — required for the headphones to apply the SET
             send(ch, HANDSHAKE + setBytes + BATT_GET)
         case .status:
-            send(ch, HANDSHAKE + BATT_GET + ANC_GET)
+            send(ch, HANDSHAKE + BATT_GET)
         case .monitor:
             send(ch, HANDSHAKE)
-        }
-
-        switch command {
-        case .monitor:
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 print("Monitoring — press the ANC button on your headphones (Ctrl-C to stop)")
             }
-        default:
+        }
+
+        if case .monitor = command { } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { exit(0) }
         }
     }
@@ -102,27 +99,28 @@ class Session: NSObject, IOBluetoothRFCOMMChannelDelegate {
                 gotBattery = true
                 i += 4 + Int(bytes[i+3]); continue
             }
-            // ANC push/confirm: 01 06 03 02 [level] 0b  (button press or SET confirmation)
+            // ANC notification: 01 06 03 02 [level] 0b
             if bytes[i] == 0x01, bytes[i+1] == 0x06, bytes[i+2] == 0x03 {
                 let level = bytes[i+4]
                 switch command {
-                case .status:
-                    print("ANC     : \(ANC_NAMES[level] ?? "Unknown (0x\(String(format: "%02x", level)))")")
                 case .ancSet(_, let label, let expected):
-                    guard level == expected else { i += 4 + Int(bytes[i+3]); continue }
-                    print("ANC     → \(label.capitalized)")
+                    if level == expected {
+                        print("ANC     → \(label.capitalized)")
+                        gotANC = true
+                    }
                 case .monitor:
+                    print("ANC     : \(ANC_NAMES[level] ?? "0x\(String(format: "%02x", level))")")
+                case .status:
                     break
                 }
-                gotANC = true
                 i += 4 + Int(bytes[i+3]); continue
             }
             i += 1
         }
 
         let done = switch command {
-            case .status:   gotBattery && gotANC
-            case .ancSet:   gotANC
+            case .status:   gotBattery
+            case .ancSet:   gotBattery && gotANC
             case .monitor:  false
         }
         if done { exit(0) }
