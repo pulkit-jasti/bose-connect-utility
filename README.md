@@ -58,4 +58,4 @@ The app communicates with the headphones over Classic Bluetooth RFCOMM (channel 
 
 ## License
 
-MIT
+MIT - do whatever you want with it.
